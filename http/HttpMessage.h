@@ -54,15 +54,10 @@ struct HV_EXPORT HttpCookie {
     std::string domain;
     std::string path;
     std::string expires;
-    int         max_age;
-    bool        secure;
-    bool        httponly;
-    enum SameSite {
-        Default,
-        Strict,
-        Lax,
-        None
-    } samesite;
+    int max_age;
+    bool secure;
+    bool httponly;
+    enum SameSite { Default, Strict, Lax, None } samesite;
     enum Priority {
         NotSet,
         Low,
@@ -80,60 +75,51 @@ struct HV_EXPORT HttpCookie {
     std::string dump() const;
 };
 
-typedef std::map<std::string, std::string, hv::StringCaseLess>  http_headers;
-typedef std::vector<HttpCookie>                                 http_cookies;
-typedef std::string                                             http_body;
+typedef std::map<std::string, std::string, hv::StringCaseLess> http_headers;
+typedef std::vector<HttpCookie> http_cookies;
+typedef std::string http_body;
 
 HV_EXPORT extern http_headers DefaultHeaders;
-HV_EXPORT extern http_body    NoBody;
-HV_EXPORT extern HttpCookie   NoCookie;
+HV_EXPORT extern http_body NoBody;
+HV_EXPORT extern HttpCookie NoCookie;
 
 class HV_EXPORT HttpMessage {
 public:
-    static char         s_date[32];
-    int                 type;
-    unsigned short      http_major;
-    unsigned short      http_minor;
+    static char s_date[32];
+    int type;
+    unsigned short http_major;
+    unsigned short http_minor;
 
-    http_headers        headers;
-    http_cookies        cookies;
-    http_body           body;
+    http_headers headers;
+    http_cookies cookies;
+    http_body body;
 
     // http_cb
     std::function<void(HttpMessage*, http_parser_state state, const char* data, size_t size)> http_cb;
 
     // structured content
-    void*               content;    // DATA_NO_COPY
-    size_t              content_length;
-    http_content_type   content_type;
+    void* content; // DATA_NO_COPY
+    size_t content_length;
+    http_content_type content_type;
 #ifndef WITHOUT_HTTP_CONTENT
-    hv::Json            json;       // APPLICATION_JSON
-    hv::MultiPart       form;       // MULTIPART_FORM_DATA
-    hv::KeyValue        kv;         // X_WWW_FORM_URLENCODED
+    hv::Json json;      // APPLICATION_JSON
+    hv::MultiPart form; // MULTIPART_FORM_DATA
+    hv::KeyValue kv;    // X_WWW_FORM_URLENCODED
 
     // T=[bool, int, int64_t, float, double]
-    template<typename T>
-    T Get(const char* key, T defvalue = 0);
+    template <typename T> T Get(const char* key, T defvalue = 0);
 
     std::string GetString(const char* key, const std::string& = "");
     bool GetBool(const char* key, bool defvalue = 0);
     int64_t GetInt(const char* key, int64_t defvalue = 0);
     double GetFloat(const char* key, double defvalue = 0);
 
-    template<typename T>
-    void Set(const char* key, const T& value) {
+    template <typename T> void Set(const char* key, const T& value) {
         switch (ContentType()) {
-        case APPLICATION_JSON:
-            json[key] = value;
-            break;
-        case MULTIPART_FORM_DATA:
-            form[key] = hv::FormData(value);
-            break;
-        case X_WWW_FORM_URLENCODED:
-            kv[key] = hv::to_string(value);
-            break;
-        default:
-            break;
+        case APPLICATION_JSON: json[key] = value; break;
+        case MULTIPART_FORM_DATA: form[key] = hv::FormData(value); break;
+        case X_WWW_FORM_URLENCODED: kv[key] = hv::to_string(value); break;
+        default: break;
         }
     }
 
@@ -155,8 +141,7 @@ public:
                 ));
      */
     // Content-Type: application/json
-    template<typename T>
-    int Json(const T& t) {
+    template <typename T> int Json(const T& t) {
         content_type = APPLICATION_JSON;
         hv::Json j(t);
         body = j.dump(2);
@@ -170,8 +155,7 @@ public:
     }
 
     // Content-Type: multipart/form-data
-    template<typename T>
-    void SetFormData(const char* name, const T& t) {
+    template <typename T> void SetFormData(const char* name, const T& t) {
         form[name] = hv::FormData(t);
     }
     void SetFormFile(const char* name, const char* filepath) {
@@ -224,8 +208,7 @@ public:
     }
 
     // Content-Type: application/x-www-form-urlencoded
-    template<typename T>
-    void SetUrlEncoded(const char* key, const T& t) {
+    template <typename T> void SetUrlEncoded(const char* key, const T& t) {
         kv[key] = hv::to_string(t);
     }
     const hv::KeyValue& GetUrlEncoded() {
@@ -277,7 +260,7 @@ public:
     void DumpBody(std::string& str);
     // body -> structured content
     // @retval 0:succeed
-    int  ParseBody();
+    int ParseBody();
 
     virtual std::string Dump(bool is_dump_headers, bool is_dump_body);
 
@@ -329,7 +312,8 @@ public:
         if (nocopy) {
             content = data;
             content_length = len;
-        } else {
+        }
+        else {
             content_length = body.size();
             body.resize(content_length + len);
             memcpy((void*)(body.data() + content_length), data, len);
@@ -359,32 +343,32 @@ public:
 };
 
 #define DEFAULT_HTTP_USER_AGENT "Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.132 Safari/537.36"
-#define DEFAULT_HTTP_TIMEOUT            60 // s
-#define DEFAULT_HTTP_CONNECT_TIMEOUT    10 // s
-#define DEFAULT_HTTP_FAIL_RETRY_COUNT   1
-#define DEFAULT_HTTP_FAIL_RETRY_DELAY   1000 // ms
+#define DEFAULT_HTTP_TIMEOUT 1         // s
+#define DEFAULT_HTTP_CONNECT_TIMEOUT 1 // s
+#define DEFAULT_HTTP_FAIL_RETRY_COUNT 1
+#define DEFAULT_HTTP_FAIL_RETRY_DELAY 1000 // ms
 
 class HV_EXPORT HttpRequest : public HttpMessage {
 public:
-    http_method         method;
+    http_method method;
     // scheme:[//[user[:password]@]host[:port]][/path][?query][#fragment]
-    std::string         url;
+    std::string url;
     // structured url
-    std::string         scheme;
-    std::string         host;
-    int                 port;
-    std::string         path;
-    hv::QueryParams     query_params;
+    std::string scheme;
+    std::string host;
+    int port;
+    std::string path;
+    hv::QueryParams query_params;
     // client_addr
-    hv::NetAddr         client_addr; // for http server save client addr of request
+    hv::NetAddr client_addr; // for http server save client addr of request
     // for HttpClient
-    uint16_t            timeout;        // unit: s
-    uint16_t            connect_timeout;// unit: s
-    uint32_t            retry_count;
-    uint32_t            retry_delay;    // unit: ms
-    unsigned            redirect: 1;
-    unsigned            proxy   : 1;
-    unsigned            cancel  : 1;
+    uint16_t timeout;         // unit: s
+    uint16_t connect_timeout; // unit: s
+    uint32_t retry_count;
+    uint32_t retry_delay; // unit: ms
+    unsigned redirect : 1;
+    unsigned proxy : 1;
+    unsigned cancel : 1;
 
     HttpRequest();
 
@@ -394,26 +378,15 @@ public:
     virtual std::string Dump(bool is_dump_headers = true, bool is_dump_body = false);
 
     // method
-    void SetMethod(const char* method) {
-        this->method = http_method_enum(method);
-    }
-    const char* Method() {
-        return http_method_str(method);
-    }
+    void SetMethod(const char* method) { this->method = http_method_enum(method); }
+    const char* Method() { return http_method_str(method); }
 
     // scheme
-    bool IsHttps() {
-        return strncmp(scheme.c_str(), "https", 5) == 0 ||
-               strncmp(url.c_str(), "https://", 8) == 0;
-    }
+    bool IsHttps() { return strncmp(scheme.c_str(), "https", 5) == 0 || strncmp(url.c_str(), "https://", 8) == 0; }
 
     // url
-    void SetUrl(const char* url) {
-        this->url = url;
-    }
-    const std::string& Url() {
-        return url;
-    }
+    void SetUrl(const char* url) { this->url = url; }
+    const std::string& Url() { return url; }
     // structed url -> url
     void DumpUrl();
     // url -> structed url
@@ -425,10 +398,7 @@ public:
     std::string Path();
 
     // ?query_params
-    template<typename T>
-    void SetParam(const char* key, const T& t) {
-        query_params[key] = hv::to_string(t);
-    }
+    template <typename T> void SetParam(const char* key, const T& t) { query_params[key] = hv::to_string(t); }
     std::string GetParam(const char* key, const std::string& defvalue = hv::empty_string) {
         auto iter = query_params.find(key);
         return iter == query_params.end() ? defvalue : iter->second;
@@ -456,8 +426,7 @@ public:
     void AllowRedirect(bool on = true) { redirect = on; }
 
     // NOTE: SetRetry just for AsyncHttpClient
-    void SetRetry(int count = DEFAULT_HTTP_FAIL_RETRY_COUNT,
-                  int delay = DEFAULT_HTTP_FAIL_RETRY_DELAY) {
+    void SetRetry(int count = DEFAULT_HTTP_FAIL_RETRY_COUNT, int delay = DEFAULT_HTTP_FAIL_RETRY_DELAY) {
         retry_count = count;
         retry_delay = delay;
     }
@@ -472,9 +441,7 @@ public:
 class HV_EXPORT HttpResponse : public HttpMessage {
 public:
     http_status status_code;
-    const char* status_message() {
-        return http_status_str(status_code);
-    }
+    const char* status_message() { return http_status_str(status_code); }
 
     HttpResponse();
 
@@ -494,8 +461,8 @@ public:
     }
 };
 
-typedef std::shared_ptr<HttpRequest>    HttpRequestPtr;
-typedef std::shared_ptr<HttpResponse>   HttpResponsePtr;
+typedef std::shared_ptr<HttpRequest> HttpRequestPtr;
+typedef std::shared_ptr<HttpResponse> HttpResponsePtr;
 typedef std::function<void(const HttpResponsePtr&)> HttpResponseCallback;
 
 #endif // HV_HTTP_MESSAGE_H_
